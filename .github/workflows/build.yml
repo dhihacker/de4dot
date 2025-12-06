@@ -1,4 +1,5 @@
 name: GitHub CI
+
 on:
   push:
     branches:
@@ -15,14 +16,30 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4   # updated
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Build
+      - name: Setup MSBuild path
+        id: msbuild
         shell: pwsh
         run: |
-          $msbuildPath = Split-Path (& "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\Current\Bin\amd64\MSBuild.exe | Select-Object -First 1) -Parent
-          $env:PATH = $msbuildPath + ';' + $env:PATH
+          $msbuildExe = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest `
+            -requires Microsoft.Component.MSBuild `
+            -find MSBuild\Current\Bin\amd64\MSBuild.exe | Select-Object -First 1
+
+          $msbuildPath = Split-Path $msbuildExe -Parent
+          echo "MSBUILD_PATH=$msbuildPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Build project
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ env.MSBUILD_PATH }};$env:PATH"
           .\build.ps1
+
+      # ---------------------------
+      # UPLOAD ARTIFACTS (v4)
+      # ---------------------------
 
       - name: Upload net35
         uses: actions/upload-artifact@v4
@@ -30,6 +47,7 @@ jobs:
         with:
           name: de4dot-net35
           path: Release/net35
+          if-no-files-found: ignore
 
       - name: Upload net45
         uses: actions/upload-artifact@v4
@@ -37,6 +55,7 @@ jobs:
         with:
           name: de4dot-net45
           path: Release/net45
+          if-no-files-found: ignore
 
       - name: Upload netcoreapp2.1
         uses: actions/upload-artifact@v4
@@ -44,6 +63,7 @@ jobs:
         with:
           name: de4dot-netcoreapp2.1
           path: publish-netcoreapp2.1
+          if-no-files-found: ignore
 
       - name: Upload netcoreapp3.1
         uses: actions/upload-artifact@v4
@@ -51,3 +71,4 @@ jobs:
         with:
           name: de4dot-netcoreapp3.1
           path: publish-netcoreapp3.1
+          if-no-files-found: ignore
